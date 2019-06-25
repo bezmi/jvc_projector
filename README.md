@@ -10,6 +10,19 @@ Currently supports:
 
 Raise an issue if you would like any extra commands implemented
 
+# Installation
+## PyPi
+Install [this package](https://pypi.org/project/jvc-projector-remote/) from PyPi
+with:
+~~~
+pip install jvc_projector_remote
+~~~
+## From this repo
+Install from this repo with:
+~~~
+pip install -e git+https://github.com/bezmi/jvc_projector.git#egg=jvc-projector-remote
+~~~
+
 # Testing
 I wrote this to interface my projector with homeassistant. The code to
 send/receive commands is rough and the error checking could be more robust. It
