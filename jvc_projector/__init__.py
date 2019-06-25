@@ -1,5 +1,4 @@
 import socket
-import logging
 from enum import Enum
 
 class Commands(Enum):
@@ -101,7 +100,6 @@ class JVCProjector:
 
     def is_on(self):
         message = self._send_command(Commands.power_status.value, ack = ACKs.power_ack.value)
-        print(message)
         if message == PowerStates.lamp_on.value or message == PowerStates.reserved.value:
             return True
         elif message == PowerStates.standby.value or message == PowerStates.cooling.value or message == PowerStates.emergency.value:
