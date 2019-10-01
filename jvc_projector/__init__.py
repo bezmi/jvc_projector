@@ -20,6 +20,11 @@ class Commands(Enum):
     # power status query commands
     power_status   = b"\x3F\x89\x01\x50\x57\x0A"
     current_output = b"\x3F\x89\x01\x49\x50\x0A"
+    
+    # picture mode commands
+    pm_cinema = b"\x21\x89\x01\x50\x4D\x50\x4D\x30\x31\x0A"
+    pm_hdr = b"\x21\x89\x01\x50\x4D\x50\x4D\x30\x34\x0A"
+    
 
 class PowerStates(Enum):
     standby   = b"\x40\x89\x01\x50\x57\x30\x0A"
