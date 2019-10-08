@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="jvc_projector_remote",
-    version="0.0.1.post1",
+    version="0.0.2",
     author="bezmi",
     description="A small package to control jvc projectors over IP",
     long_description=long_description,
