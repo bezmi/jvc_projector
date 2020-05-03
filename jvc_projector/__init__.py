@@ -5,7 +5,7 @@ from time import sleep
 
 class Commands(Enum):
     # power commands
-    power_on  = b"\x21\x89\x01\x50\x57\x31\x0A"
+    power_on = b"\x21\x89\x01\x50\x57\x31\x0A"
     power_off = b"\x21\x89\x01\x50\x57\x30\x0A"
 
     # lens memory commands
@@ -37,6 +37,7 @@ class Commands(Enum):
     pm_user6 = b"\x21\x89\x01\x50\x4D\x50\x4D\x31\x31\x0A"
     pm_hlg = b"\x21\x89\x01\x50\x4D\x50\x4D\x31\x34\x0A"
 
+
 class PowerStates(Enum):
     standby   = b"\x40\x89\x01\x50\x57\x30\x0A"
     cooling   = b"\x40\x89\x01\x50\x57\x32\x0A"
@@ -49,6 +50,7 @@ class PowerStates(Enum):
     lamp_on  = b"\x40\x89\x01\x50\x57\x31\x0A"
     reserved = b"\x40\x89\x01\x50\x57\x33\x0A"
 
+
 class ACKs(Enum):
     power_ack = b"\x06\x89\x01\x50\x57\x0A"
     input_ack = b"\x06\x89\x01\x49\x50\x0A"
@@ -57,7 +59,7 @@ class ACKs(Enum):
 class JVCProjector:
     """JVC Projector Control"""
 
-    def __init__(self, host, port = 20554):
+    def __init__(self, host, port=20554):
         self.host = host
         self.port = port
         self.delay = 0.6
