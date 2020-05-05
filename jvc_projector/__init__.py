@@ -77,7 +77,6 @@ class JVCProjector:
 
         return
 
-
     def _send_command(self, operation, ack=None):
         JVC_GREETING = b'PJ_OK'
         JVC_REQ = b'PJREQ'
@@ -87,10 +86,7 @@ class JVCProjector:
         self.throttle()
 
         jvc_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        try:
-            jvc_sock.connect((self.host, self.port)) # connect to projector
-        except:
-            return "unknown"
+        jvc_sock.connect((self.host, self.port)) # connect to projector
 
         # 3 step handshake:
         # Projector sends PJ_OK, client sends PJREQ, projector replies with PJACK
@@ -142,11 +138,7 @@ class JVCProjector:
 
     def power_state(self):
         message = self._send_command(Commands.power_status.value, ack=ACKs.power_ack.value)
-        for x in PowerStates:
-            if x.value == message:
-                return x.name
-
-        return "unknown"
+        return PowerStates(message).name
 
     def is_on(self):
         on = [PowerStates.lamp_on.value, PowerStates.reserved.value]
