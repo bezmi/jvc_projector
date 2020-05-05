@@ -1,6 +1,7 @@
 import socket
 from enum import Enum
 from time import sleep
+import datetime
 
 
 class Commands(Enum):
@@ -59,16 +60,31 @@ class ACKs(Enum):
 class JVCProjector:
     """JVC Projector Control"""
 
-    def __init__(self, host, port=20554):
+    def __init__(self, host, port=20554, delay_ms=600):
         self.host = host
         self.port = port
-        self.delay = 0.6
+        self.delay = datetime.timedelta(microseconds=(delay_ms * 1000))
+        self.last_command_time = datetime.datetime.now() - datetime.timedelta(seconds=10)
+
+    def throttle(self):
+        if self.delay == 0:
+            return
+
+        delta = datetime.datetime.now() - self.last_command_time
+
+        if self.delay > delta:
+            sleep((self.delay - delta).total_seconds())
+
+        return
+
 
     def _send_command(self, operation, ack=None):
         JVC_GREETING = b'PJ_OK'
         JVC_REQ = b'PJREQ'
         JVC_ACK = b'PJACK'
         result = False
+
+        self.throttle()
 
         jvc_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         jvc_sock.connect((self.host, self.port)) # connect to projector
@@ -104,7 +120,7 @@ class JVCProjector:
 
         jvc_sock.close()
 
-        sleep(self.delay)
+        self.last_command_time = datetime.datetime.now()
 
         return result
 
