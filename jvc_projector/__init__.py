@@ -60,9 +60,10 @@ class ACKs(Enum):
 class JVCProjector:
     """JVC Projector Control"""
 
-    def __init__(self, host, port=20554, delay_ms=600):
+    def __init__(self, host, port=20554, delay_ms=600, connect_timeout=60):
         self.host = host
         self.port = port
+        self.connect_timeout = connect_timeout
         self.delay = datetime.timedelta(microseconds=(delay_ms * 1000))
         self.last_command_time = datetime.datetime.now() - datetime.timedelta(seconds=10)
 
@@ -86,6 +87,7 @@ class JVCProjector:
         self.throttle()
 
         jvc_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        jvc_sock.settimeout(self.connect_timeout)
         jvc_sock.connect((self.host, self.port)) # connect to projector
 
         # 3 step handshake:
