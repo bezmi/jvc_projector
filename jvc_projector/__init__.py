@@ -1,9 +1,12 @@
 import socket
 from enum import Enum
+from time import sleep
+import datetime
+
 
 class Commands(Enum):
     # power commands
-    power_on  = b"\x21\x89\x01\x50\x57\x31\x0A"
+    power_on = b"\x21\x89\x01\x50\x57\x31\x0A"
     power_off = b"\x21\x89\x01\x50\x57\x30\x0A"
 
     # lens memory commands
@@ -35,6 +38,7 @@ class Commands(Enum):
     pm_user6 = b"\x21\x89\x01\x50\x4D\x50\x4D\x31\x31\x0A"
     pm_hlg = b"\x21\x89\x01\x50\x4D\x50\x4D\x31\x34\x0A"
 
+
 class PowerStates(Enum):
     standby   = b"\x40\x89\x01\x50\x57\x30\x0A"
     cooling   = b"\x40\x89\x01\x50\x57\x32\x0A"
@@ -47,6 +51,7 @@ class PowerStates(Enum):
     lamp_on  = b"\x40\x89\x01\x50\x57\x31\x0A"
     reserved = b"\x40\x89\x01\x50\x57\x33\x0A"
 
+
 class ACKs(Enum):
     power_ack = b"\x06\x89\x01\x50\x57\x0A"
     input_ack = b"\x06\x89\x01\x49\x50\x0A"
@@ -55,16 +60,34 @@ class ACKs(Enum):
 class JVCProjector:
     """JVC Projector Control"""
 
-    def __init__(self, host, port = 20554):
+    def __init__(self, host, port=20554, delay_ms=600, connect_timeout=60):
         self.host = host
         self.port = port
+        self.connect_timeout = connect_timeout
+        self.delay = datetime.timedelta(microseconds=(delay_ms * 1000))
+        self.last_command_time = datetime.datetime.now() - datetime.timedelta(seconds=10)
+
+    def throttle(self):
+        if self.delay == 0:
+            return
+
+        delta = datetime.datetime.now() - self.last_command_time
+
+        if self.delay > delta:
+            sleep((self.delay - delta).total_seconds())
+
+        return
 
     def _send_command(self, operation, ack=None):
         JVC_GREETING = b'PJ_OK'
         JVC_REQ = b'PJREQ'
         JVC_ACK = b'PJACK'
+        result = False
+
+        self.throttle()
 
         jvc_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        jvc_sock.settimeout(self.connect_timeout)
         jvc_sock.connect((self.host, self.port)) # connect to projector
 
         # 3 step handshake:
@@ -94,10 +117,13 @@ class JVCProjector:
 
             if ACK == ack:
                 message = jvc_sock.recv(1024)
-                jvc_sock.close()
-                return message
+                result = message
+
         jvc_sock.close()
 
+        self.last_command_time = datetime.datetime.now()
+
+        return result
 
     def power_on(self):
         self._send_command(Commands.power_on.value)
@@ -112,12 +138,11 @@ class JVCProjector:
             self._send_command(Commands[command_string].value)
             return True
 
+    def power_state(self):
+        message = self._send_command(Commands.power_status.value, ack=ACKs.power_ack.value)
+        return PowerStates(message).name
+
     def is_on(self):
-        message = self._send_command(Commands.power_status.value, ack = ACKs.power_ack.value)
-        if message == PowerStates.lamp_on.value or message == PowerStates.reserved.value:
-            return True
-        elif message == PowerStates.standby.value or message == PowerStates.cooling.value or message == PowerStates.emergency.value:
-            return False
-
-
+        on = [PowerStates.lamp_on.value, PowerStates.reserved.value]
+        return self.power_state() in on
 
