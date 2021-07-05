@@ -7,6 +7,7 @@ Currently supports:
 * Lens Memory
 * Input (HDMI only)
 * Power Status (Standby, Cooling, Emergency, Lamp On, Reserved)
+* Low Latency Mode
 
 Raise an issue if you would like any extra commands implemented. Alternatively pull requests are more than welcome and adding new commands is trivial. [See Below.](#adding-new-commands)
 
@@ -63,6 +64,7 @@ projector and I will add it to the list below.
 
 ## Confirmed Models
 * DLA-X5900
+* NX5
 
 # Bugs
 The main issue one might face is receiving ConnectionRefusedError when making a
