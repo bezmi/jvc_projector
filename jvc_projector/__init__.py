@@ -95,12 +95,13 @@ class ACKs(Enum):
 class JVCProjector:
     """JVC Projector Control"""
 
-    def __init__(self, host, port=20554, delay_ms=600, connect_timeout=60):
+    def __init__(self, host, password = None, port=20554, delay_ms=600, connect_timeout=60):
         self.host = host
         self.port = port
         self.connect_timeout = connect_timeout
         self.delay = datetime.timedelta(microseconds=(delay_ms * 1000))
         self.last_command_time = datetime.datetime.now() - datetime.timedelta(seconds=10)
+        self.password = password
 
     def throttle(self):
         if self.delay == 0:
@@ -115,7 +116,17 @@ class JVCProjector:
 
     def _send_command(self, operation, ack=None):
         JVC_GREETING = b'PJ_OK'
-        JVC_REQ = b'PJREQ'
+        if self.password != None:
+            if len(self.password) == 10:
+                JVC_REQ = b'PJREQ_' + bytes(self.password, 'ascii')
+            elif len(self.password) == 9:
+                JVC_REQ = b'PJREQ_' + bytes(self.password, 'ascii') + b'\x00'
+            elif len(self.password) == 8:
+                JVC_REQ = b'PJREQ_' + bytes(self.password, 'ascii') + b'\x00\x00'
+            else:
+                raise Exception("Specified network password invalid (too long/short)")
+        else:
+            JVC_REQ = b'PJREQ'
         JVC_ACK = b'PJACK'
         result = False
 

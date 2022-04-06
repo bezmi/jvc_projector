@@ -26,15 +26,21 @@ pip install -e git+https://github.com/bezmi/jvc_projector.git#egg=jvc-projector-
 # Usage
 For usage with homeassistant, [see here](https://github.com/bezmi/hass_custom_components).
 
-Here is am example for using this module standalone:
+Here is an example for using this module standalone:
 ``` python
 >>> from jvc_projector import JVCProjector
 
  # replace with your projector's local IP
 >>> host = "192.168.1.12"
 
+ # replace with your projector's network password (if applicable)
+>>> password = "MYPASSWORD"
+
 # initialise
 >>> projector = JVCProjector(host)
+
+# initialise (alternate, with network password)
+>>> projector = JVCProjector(host, password)
 
 # power on, power off
 >>> projector.power_on()
@@ -65,6 +71,7 @@ projector and I will add it to the list below.
 ## Confirmed Models
 * DLA-X5900
 * NX5
+* NZ8/RS3100
 
 # Bugs
 The main issue one might face is receiving ConnectionRefusedError when making a
