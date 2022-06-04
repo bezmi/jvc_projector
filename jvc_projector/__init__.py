@@ -186,9 +186,9 @@ class JVCProjector:
 
     def power_state(self):
         message = self._send_command(Commands.power_status.value, ack=ACKs.power_ack.value)
-        return PowerStates(message)
+        return PowerStates(message).name
 
     def is_on(self):
-        on = [PowerStates.lamp_on, PowerStates.reserved]
+        on = [PowerStates.lamp_on.name, PowerStates.reserved.name]
         return self.power_state() in on
 
