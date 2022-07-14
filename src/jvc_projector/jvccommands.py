@@ -30,7 +30,7 @@ class Command:
         read_only(bool, optional): Disable writing commands to the projector
             Defaults to False.
         verify_write (bool, optional): Whether we should wait for an ACK once we send a write command.
-            Defaults to False. I have found that my projector doesn't always return an ACK for some command (eg, inputs)
+            Defaults to True.
 
     Examples:
         See jvccommands.Commands, jvcprojector.JVCProjector
