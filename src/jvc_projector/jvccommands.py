@@ -1,10 +1,8 @@
 """Commands for the jvc_projector library."""
 
-from enum import Enum
-from typing import NamedTuple, Optional, List, Iterable
 import socket
 import logging
-from dataclasses import dataclass, field, InitVar
+from dataclasses import dataclass, field
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -16,18 +14,19 @@ ACKH = b"\x06\x89\x01"  # projector ack
 COM_ACK_LENGTH = 6  # length of ACKs sent by the projector
 
 
+# use a dataclass so that we have a nice repr
 @dataclass(init=False)
 class Command:
-    """This is the base class for defining a set of read/write commands.
+    """Base class for defining a set of read/write commands.
     Args:
         cmd (bytes): the base command bytes, for examplee b"PW" for power, b"PMPM" for picture mode.
         *args (dict[str, bytes]): dictionaries of str:bytes pairs defining the read and write values.
             If two dicts are provided as args, then the first is used for the write commands and
             the second is used for read values. If only a single dict is provided,
             we use it for both the write commands and the read values.
-        write_only(bool, optional): Disable using this command group to read from the projector
+        write_only(bool, optional): If true, this command group does not read from the projector
             Defaults to False.
-        read_only(bool, optional): Disable writing commands to the projector
+        read_only(bool, optional): If True, this command group cannot write to the projector
             Defaults to False.
         verify_write (bool, optional): Whether we should wait for an ACK once we send a write command.
             Defaults to True.
@@ -37,14 +36,14 @@ class Command:
     """
 
     cmd: bytes
-    name: bytes
-    readwritevals: tuple[dict[str, bytes]]
-    write_only: bool = False
-    read_only: bool = False
-    verify_write: bool = True
+    name: str
+    readwritevals: tuple[dict[str, bytes]] = field(repr=False)
+    write_only: bool
+    read_only: bool
+    verify_write: bool
 
-    write_vals: dict[str, bytes] = field(init=False)
-    read_vals: dict[str, bytes] = field(init=False)
+    write_vals: dict[str, bytes]
+    read_vals: dict[str, bytes]
 
     def __init__(
         self,
@@ -60,12 +59,12 @@ class Command:
         self.ack = ACKH + self.cmd[0:2] + b"\n"
 
         try:
-            assert 0 <= len(readwritevals) <= 2
+            assert len(readwritevals) <= 2
         except AssertionError:
             raise AssertionError(
                 "(set_vals, get_vals) AND setget_vals cannot be defined at the same time."
             )
-        # self.name = name
+
         self.write_only = write_only
         self.read_only = read_only
         if len(readwritevals) == 1:
@@ -80,7 +79,8 @@ class Command:
                 self.read_vals = readwritevals[0]
 
         elif len(readwritevals) == 2:
-            self.write_vals, self.read_vals = readwritevals
+            self.write_vals = readwritevals[0]
+            self.read_vals = readwritevals[1]
         else:
             self.write_vals = {}
             self.read_vals = {}
@@ -90,19 +90,19 @@ class Command:
         }
         self.read_valsinv = {self.read_vals[key]: key for key in self.read_vals.keys()}
 
-    def __set_name__(self, owner, name):
+    def __set_name__(self, owner, name: str):
         self.name = name
 
-    def _send(self, sock: socket.socket, command: bytes) -> None:
+    def __send(self, sock: socket.socket, command: bytes) -> None:
         try:
             sock.sendall(command)
-        except socket.error as e:
+        except OSError as e:
             sock.close()
             raise JVCCommunicationError(
                 f"Socket exception of `{self.name}` command when sending bytes: `{command}`."
             ) from e
 
-    def _verify_ack(self, sock: socket.socket, command: bytes) -> None:
+    def __verify_ack(self, sock: socket.socket, command: bytes) -> None:
         try:
             ACK = sock.recv(COM_ACK_LENGTH)
 
@@ -126,7 +126,7 @@ class Command:
                 f"Timeout when waiting for the specified ACK: `{self.ack}` for command: `{self.name}` with bytes: `{command}`"
             ) from e
 
-        except socket.error as e:
+        except OSError as e:
             sock.close()
             raise JVCCommunicationError(
                 f"Socket exception when waiting for the specified ACK: `{self.ack}` for command: `{self.name}` with bytes: `{command}`"
@@ -136,17 +136,17 @@ class Command:
         if self.read_only:
             sock.close()
             raise JVCCommandNotFoundError(
-                f"The command `{self.name}` can only read information from the projector"
+                f"The command group `{self.name}` does not implement any writable properties"
             )
         try:
             command = OPR + self.cmd + self.write_vals[value] + b"\n"
         except KeyError as e:
             if not value and not self.write_vals:
                 command = OPR + self.cmd + b"\n"
-            elif not value:
+            elif not value and self.write_only:
                 sock.close()
                 raise JVCCommandNotFoundError(
-                    f"The write_only command: `{self.name}` requires a key to be defined to do a write operation"
+                    f"The write_only command group: `{self.name}` requires a property key to be defined to do a write operation"
                 ) from e
             else:
                 sock.close()
@@ -155,19 +155,18 @@ class Command:
                 ) from e
 
         if not self.verify_write:
-            # TODO: turn this into debug
-            _LOGGER.info(
-                f"ACK verification disabled for the command: `{self.name}`. Error handling will be less robust"
+            _LOGGER.debug(
+                f"ACK verification disabled for the command: `{jfrmt.highlight(self.name)} `. Error handling will be less robust"
             )
 
-        self._send(sock, command)
+        self.__send(sock, command)
 
         # no need to wait for ACK or message as this is not a reference command without ACK specified
         if not self.verify_write:
             sock.close()
             return
 
-        self._verify_ack(sock, command)
+        self.__verify_ack(sock, command)
 
         sock.close()
 
@@ -175,14 +174,14 @@ class Command:
         if self.write_only:
             sock.close()
             raise JVCCommandNotFoundError(
-                f"The command: `{self.name}` does not implement any readable properties"
+                f"The command group: `{self.name}` does not implement any readable properties"
             )
 
         command = REF + self.cmd + b"\n"
 
-        self._send(sock, command)
+        self.__send(sock, command)
 
-        self._verify_ack(sock, command)
+        self.__verify_ack(sock, command)
 
         try:
             resp = sock.recv(1024)
@@ -191,14 +190,20 @@ class Command:
             raise JVCCommunicationError(
                 f"Timeout when waiting for response for read command: `{self.name}`"
             ) from e
-        except socket.error as e:
+        except OSError as e:
             sock.close()
             raise JVCCommunicationError(
                 f"Socket exception when waiting for response for read command: `{self.name}`"
             ) from e
 
         sock.close()
-        assert resp.startswith(RES + self.cmd[0:2])
+        try:
+            assert resp.startswith(RES + self.cmd[0:2])
+        except AssertionError as e:
+            raise JVCCommunicationError(
+                f"Malformed response header for read command: `{self.name}`"
+            ) from e
+
         resp = resp[len(RES) + 2 : -1]
 
         if not self.read_vals:
@@ -350,3 +355,9 @@ class JVCPoweredOffError(Exception):
     """Exception when projector is powered off and can't accept some commands."""
 
     pass
+
+
+class jfrmt:
+    @staticmethod
+    def highlight(value: str) -> str:
+        return "{:s}".format("\u035F".join(value))
