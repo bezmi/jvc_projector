@@ -72,10 +72,6 @@ Here is an example for using this module standalone (see [command format](#comma
  # replace with your projector's local IP
 >>> host = "192.168.1.12"
 
- # replace with your projector's network password
- # only required for NZ series (check your network settings)
->>> password = "MYPASSWORD"
-
 # initialise (for models older than the NZ series)
 >>> projector = JVCProjector(host, port=20554, delay_ms=600, connect_timeout=10, max_retries=10)
 
