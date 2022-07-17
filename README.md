@@ -67,7 +67,7 @@ For usage with homeassistant, [see here](https://github.com/bezmi/homeassistant_
 
 Here is an example for using this module standalone (see [command format](#command-format) section for command strings):
 ``` python
->>> from jvc_projector import JVCProjector
+>>> from jvc_projector_remote import JVCProjector
 
  # replace with your projector's local IP
 >>> host = "192.168.1.12"
