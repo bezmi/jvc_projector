@@ -7,7 +7,7 @@ The following command groups are supported, with the corresponding reference (`?
   * Read: `standby`, `lamp_on`, `cooling`, `reserved`, `emergency`
   * Write: `on`, `off`
 * Lens Memory (`memory`)
-  * Read/Write: `1`, `2`, `3`, `4`, `5`
+  * Write: `1`, `2`, `3`, `4`, `5`
 * Input (`input`, HDMI only)
   * Read/Write: `hdmi1`, `hdmi2`
 * Picture Mode (`picture_mode`)
