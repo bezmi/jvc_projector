@@ -18,12 +18,12 @@ class JVCProjector:
         password: Optional[str] = None,
         port: Optional[int] = None,
         delay_ms: Optional[int] = None,
-        connect_timeout: Optional[int] = None,
+        timeout: Optional[float] = None,
         max_retries: Optional[int] = None,
-    ):
+    ) -> None:
         self.host = host
         self.port = port if port else 20554
-        self.connect_timeout = connect_timeout if connect_timeout else 10
+        self.timeout = timeout if timeout else 2.0
         self.delay = (
             datetime.timedelta(microseconds=(delay_ms * 1000))
             if delay_ms
@@ -33,10 +33,10 @@ class JVCProjector:
             seconds=10
         )
         self.password = password if password else ""
-        self.max_retries = max_retries if max_retries else 10
+        self.max_retries = max_retries if max_retries else 5
 
         _LOGGER.debug(
-            f"initialising JVCProjector with host={self.host}, password={self.password}, port={self.port}, delay={self.delay.total_seconds()*1000}, connect_timeout={self.connect_timeout}, max_retries={self.max_retries}"
+            f"initialising JVCProjector with host={self.host}, password={self.password}, port={self.port}, delay={self.delay.total_seconds()*1000}, timeout={self.timeout}, max_retries={self.max_retries}"
         )
 
         self.JVC_REQ = b"PJREQ"
@@ -74,7 +74,7 @@ class JVCProjector:
 
     def __connect(self, retry: int = 0) -> socket.socket:
         jvc_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        jvc_sock.settimeout(self.connect_timeout)
+        jvc_sock.settimeout(self.timeout)
         try:
             jvc_sock.connect((self.host, self.port))
             return jvc_sock
@@ -144,6 +144,7 @@ class JVCProjector:
     def _send_command(self, command: Command, value: str = "") -> Optional[str]:
         """Call Commands.read() if not value, else Commands.write(value)"""
 
+        _LOGGER.debug(f"_send_command called")
         self.__throttle(self.last_command_time)
 
         jvc_sock: socket.socket = self.__handshake()
@@ -182,13 +183,6 @@ class JVCProjector:
         self._send_command(Commands.power, "off")
 
     def command(self, command_string: str) -> Optional[str]:
-        ps = self.power_state()
-        if (command_string not in ["power-on", "power"]) and ps != "lamp_on":
-            raise JVCPoweredOffError(
-                f"Can't execute command: `{command_string}` unless the projector is in state `lamp_on`. "
-                f"Current power state is: `{ps}`"
-            )
-
         commandl: list[str] = command_string.split("-")
 
         if not hasattr(Commands, commandl[0]):

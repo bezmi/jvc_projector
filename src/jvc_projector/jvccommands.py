@@ -90,6 +90,12 @@ class Command:
         }
         self.read_valsinv = {self.read_vals[key]: key for key in self.read_vals.keys()}
 
+        for key in self.write_vals.keys():
+            assert "-" not in key, "command keys cannot contain hyphens ('-') !"
+
+        for key in self.read_vals.keys():
+            assert "-" not in key, "command keys cannot contain hyphens ('-') !"
+
     def __set_name__(self, owner, name: str):
         self.name = name
 
@@ -197,12 +203,10 @@ class Command:
             ) from e
 
         sock.close()
-        try:
-            assert resp.startswith(RES + self.cmd[0:2])
-        except AssertionError as e:
+        if not resp.startswith(RES + self.cmd[0:2]):
             raise JVCCommunicationError(
                 f"Malformed response header for read command: `{self.name}`"
-            ) from e
+            )
 
         resp = resp[len(RES) + 2 : -1]
 
@@ -232,6 +236,7 @@ class Commands:
     memory = Command(
         b"INML",
         {"1": b"0", "2": b"1", "3": b"2", "4": b"3", "5": b"4"},
+        write_only=True,
     )
 
     # input commands, input is technically a keyword, but should be okay...
