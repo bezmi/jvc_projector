@@ -49,19 +49,8 @@ class JVCProjector:
                 self.JVC_REQ = b"PJREQ_" + bytes(self.password, "ascii") + b"\x00\x00"
             else:
                 raise JVCConfigError(
-                    "Specified network password invalid (too long/short)"
+                    "Specified network password invalid (too long/short). Please check your configuration."
                 )
-
-        try:
-            _LOGGER.debug(
-                f"Sending nullcmd to {jfrmt.highlight(f'{self.host}:{self.port}')} to verify connection"
-            )
-            self._send_command(Commands.nullcmd)
-        except JVCCannotConnectError as e:
-            raise JVCConfigError(
-                f"Couldn't verify connection to projector at the specified address: {self.host}:{self.port}. "
-                f"Make sure the host and port are set correctly and control4 is turned off in projector settings"
-            ) from e
 
     def __throttle(self, last_time: datetime.datetime) -> None:
         if self.delay == 0:
@@ -174,6 +163,18 @@ class JVCProjector:
                 f"the state of command group: {jfrmt.highlight(command.name)} is: {jfrmt.highlight(result)}"
             )
             return result
+
+    def validate_connection(self) -> bool:
+        try:
+            _LOGGER.debug(
+                f"Sending nullcmd to {jfrmt.highlight(f'{self.host}:{self.port}')} to verify connection"
+            )
+            self._send_command(Commands.nullcmd)
+            return True
+        except JVCCannotConnectError as e:
+            _LOGGER.debug(f"Couldn't verify connection to projector at the specified address: {self.host}:{self.port}.")
+            return False
+
 
     def power_on(self) -> None:
         self._send_command(Commands.power, "on")
