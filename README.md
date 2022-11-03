@@ -112,7 +112,7 @@ The main issue one might face is receiving ConnectionRefusedError when making a
 request too soon after another. If this is the case, we will retry up to `max_retries`. It is important to set `delay_ms` to a reasonable value. For example, my X5900 will hang for 0.8-1 second after the power-off command is sent. I have found that the defaults work in most situations.
 
 # Adding New Commands
-If you are not familiar with python at all, raise an issue with a request to add a new command. Otherwise, follow the [documentation](src/jvc_projector/jvccommands.py#L19) for the `Command` base class and be sure to look at the [examples](src/jvc_projector/jvccommands.py#L215) in the `Commands` class.
+If you are not familiar with python at all, raise an issue with a request to add a new command. Otherwise, follow the [documentation](src/jvc_projector_remote/jvccommands.py#L19) for the `Command` base class and be sure to look at the [examples](src/jvc_projector_remote/jvccommands.py#L215) in the `Commands` class.
 
 
 
