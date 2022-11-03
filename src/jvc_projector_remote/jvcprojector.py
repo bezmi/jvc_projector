@@ -51,6 +51,8 @@ class JVCProjector:
                 raise JVCConfigError(
                     "Specified network password invalid (too long/short). Please check your configuration."
                 )
+        # run validate_connection just but do nothing if it fails, as communication attempts may succeed later.
+        self.validate_connection()
 
     def __throttle(self, last_time: datetime.datetime) -> None:
         if self.delay == 0:
@@ -172,7 +174,7 @@ class JVCProjector:
             self._send_command(Commands.nullcmd)
             return True
         except JVCCannotConnectError as e:
-            _LOGGER.debug(f"Couldn't verify connection to projector at the specified address: {self.host}:{self.port}.")
+            _LOGGER.warning(f"Couldn't verify connection to projector at the specified address: {self.host}:{self.port}.")
             return False
 
 
