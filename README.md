@@ -1,3 +1,5 @@
+This project is looking for (co-)maintainers. Times change, I might end up with a different projector brand, JVC might change the command interface for a newer model that I don't have. Enough people use this library now that I think it's important to think about think about its future. I would be grateful to have people who are competent in python and have access to a JVC projector on board. If you're willing to help, submit a pull request implementing new features, fixing bugs or tidying up my terrible programming and documentation!
+
 # JVC Projector Remote
 
 This is a package to control JVC Projectors over IP. Created to be used with my [Homeassistant](https://www.home-assistant.io/) custom component: [bezmi/homeassistant_jvc_projector_remote](https://github.com/bezmi/homeassistant_jvc_projector_remote). It can also be used standalone.
@@ -67,7 +69,7 @@ For usage with homeassistant, [see here](https://github.com/bezmi/homeassistant_
 
 Here is an example for using this module standalone (see [command format](#command-format) section for command strings):
 ``` python
->>> from jvc_projector import JVCProjector
+>>> from jvc_projector_remote import JVCProjector
 
  # replace with your projector's local IP
 >>> host = "192.168.1.12"
@@ -110,7 +112,7 @@ The main issue one might face is receiving ConnectionRefusedError when making a
 request too soon after another. If this is the case, we will retry up to `max_retries`. It is important to set `delay_ms` to a reasonable value. For example, my X5900 will hang for 0.8-1 second after the power-off command is sent. I have found that the defaults work in most situations.
 
 # Adding New Commands
-If you are not familiar with python at all, raise an issue with a request to add a new command. Otherwise, follow the [documentation](https://github.com/bezmi/jvc_projector/blob/improved_commands/src/jvc_projector/jvccommands.py#L19) for the `Command` base class and be sure to look at the [examples](https://github.com/bezmi/jvc_projector/blob/improved_commands/src/jvc_projector/jvccommands.py#L215) in the `Commands` class.
+If you are not familiar with python at all, raise an issue with a request to add a new command. Otherwise, follow the [documentation](src/jvc_projector/jvccommands.py#L19) for the `Command` base class and be sure to look at the [examples](src/jvc_projector/jvccommands.py#L215) in the `Commands` class.
 
 
 
