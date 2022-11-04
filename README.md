@@ -11,23 +11,24 @@ The following command groups are supported, with the corresponding reference (`?
   * Read: `standby`, `lamp_on`, `cooling`, `reserved`, `emergency`
   * Write: `on`, `off`
 * Lens Memory (`memory`)
-  * Write: `1`, `2`, `3`, `4`, `5`
+  * Read/Write: `1`, `2`, `3`, `4`, `5`, `6`, `7`, `8`, `9`, `10`
 * Input (`input`, HDMI only)
   * Read/Write: `hdmi1`, `hdmi2`
 * Picture Mode (`picture_mode`)
-  * Read/Write: `film`, `cinema`, `natural`, `hdr10`, `thx`, `user1`, `user2`, `user3`, `user4`, `user5`, `user6`, `hlg`
+  * Read/Write: `film`, `cinema`, `natural`, `hdr10`, `thx`, `user1`, `user2`, `user3`, `user4`, `user5`, `user6`, `hlg`,
+                `frame_adapt_hdr` (NZ series), `hdr10p` (NZ series), `pana_pq` (NZ series)
 * Low Latency Mode (`low_latency`)
   * Read/Write: `on`, `off`
 * Mask (`mask`)
   * Read/Write: `off`, `custom1`, `custom2`, `custom3`
 * Lamp Setting (`lamp`)
-  * Read/Write: `high`, `low`
+  * Read/Write: `high`, `low`, `mid` (NZ series only)
 * Menu Buttons (`menu`)
   * Write: `menu`, `down`, `left`, `right`, `up`, `ok`, `back`
 * Lens Aperture (`aperture`)
   * Read/Write: `off`, `auto1`, `auto2`
 * Anamorphic Mode (`anamorphic`)
-  * Read/Write: `off`, `a`, `b`, `c`
+  * Read/Write: `off`, `a`, `b`, `c`, `d` (NZ series)
 * Signal Status (`signal`)
   * Read: `no_signal`, `active_signal`
 * Get Mac Address (`macaddr`)
@@ -114,7 +115,7 @@ The main issue one might face is receiving ConnectionRefusedError when making a
 request too soon after another. If this is the case, we will retry up to `max_retries`. It is important to set `delay_ms` to a reasonable value. For example, my X5900 will hang for 0.8-1 second after the power-off command is sent. I have found that the defaults work in most situations.
 
 # Adding New Commands
-If you are not familiar with python at all, raise an issue with a request to add a new command. Otherwise, follow the [documentation](https://github.com/bezmi/jvc_projector/blob/master/src/jvc_projector/jvccommands.py#L19) for the `Command` base class and be sure to look at the [examples](https://github.com/bezmi/jvc_projector/blob/master/src/jvc_projector/jvccommands.py#L215) in the `Commands` class.
+If you are not familiar with python at all, raise an issue with a request to add a new command. Otherwise, follow the [documentation](src/jvc_projector_remote/jvccommands.py#L19) for the `Command` base class and be sure to look at the [examples](src/jvc_projector_remote/jvccommands.py#L215) in the `Commands` class.
 
 
 
