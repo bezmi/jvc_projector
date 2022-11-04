@@ -90,6 +90,8 @@ class Command:
         }
         self.read_valsinv = {self.read_vals[key]: key for key in self.read_vals.keys()}
 
+    # TODO: this only works if the commands are defined within a class.
+    # A globally defined Command won't have the`name` property.
     def __set_name__(self, owner, name: str):
         self.name = name
 
@@ -206,10 +208,21 @@ class Command:
 
         resp = resp[len(RES) + 2 : -1]
 
+        # read_vals not defined but we still received a response
+        resp_ascii = resp.decode("ascii")
         if not self.read_vals:
-            return resp.decode("ascii")
+            return resp_ascii
 
-        return self.read_valsinv[resp]
+        # decode the response if it's known, otherwise just return the
+        # raw ascii code and log a warning.
+        try:
+            return self.read_valsinv[resp]
+        except KeyError as e:
+            _LOGGER.warning(
+                    f"Could not decode response: `{resp_ascii}` for command: `{jfrmt.highlight(self.name)} `. "
+                    f"It is not in the list of known responses. Returning the raw value instead."
+            )
+            return resp_ascii
 
 
 class Commands:
@@ -246,7 +259,7 @@ class Commands:
             "natural": b"03",
             "hdr10": b"04",
             "thx": b"06", # not present in NZ series
-            "frame_adapt_hdr": b"0B" # new in NZ series
+            "frame_adapt_hdr": b"0B", # new in NZ series
             "user1": b"0C",
             "user2": b"0D",
             "user3": b"0E",
@@ -358,7 +371,6 @@ class JVCPoweredOffError(Exception):
     """Exception when projector is powered off and can't accept some commands."""
 
     pass
-
 
 class jfrmt:
     @staticmethod
