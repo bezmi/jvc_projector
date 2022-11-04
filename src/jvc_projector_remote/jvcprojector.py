@@ -76,7 +76,7 @@ class JVCProjector:
             ) from e
         except OSError as e:
             jvc_sock.close()
-            if retry <= self.max_retries:
+            if retry < self.max_retries:
                 _LOGGER.debug(
                     f"Received error: {repr(e)} when trying to connect, retrying (we're on retry number {retry+1} of {self.max_retries})"
                 )
