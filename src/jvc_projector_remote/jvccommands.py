@@ -148,12 +148,14 @@ class Command:
             elif not value and self.write_only:
                 sock.close()
                 raise JVCCommandNotFoundError(
-                    f"The write_only command group: `{self.name}` requires a property key to be defined to do a write operation"
+                        f"Write only command group: `{self.name}` has to be called with a corresponding key to complete the write operation. "
+                        f"Must be one of: {list(self.write_vals.keys())}."
                 ) from e
             else:
                 sock.close()
                 raise JVCCommandNotFoundError(
-                    f"The command: `{self.name}` does not have write operation: `{value}`"
+                    f"The command: `{self.name}` does not contain operation: `{value}`. "
+                    f"Must be one of: {list(self.write_vals.keys())}."
                 ) from e
 
         if not self.verify_write:
@@ -219,8 +221,8 @@ class Command:
             return self.read_valsinv[resp]
         except KeyError as e:
             _LOGGER.warning(
-                    f"Could not decode response: `{resp_ascii}` for command: `{jfrmt.highlight(self.name)} `. "
-                    f"It is not in the list of known responses. Returning the raw value instead."
+                    f"Could not decode response: `{resp_ascii}` for command: `{jfrmt.highlight(self.name)}`. "
+                    f"It is not in the list of known responses, returning the raw ascii value instead."
             )
             return resp_ascii
 
