@@ -7,7 +7,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "jvc_projector_remote"
-version = "0.2.0"
+version = "0.2.1"
 authors = [{name="bezmi"}]
 description = "A package to control JVC projectors over IP"
 readme = "README.md"
