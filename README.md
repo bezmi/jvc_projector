@@ -13,19 +13,20 @@ The following command groups are supported, with the corresponding reference (`?
 * Input (`input`, HDMI only)
   * Read/Write: `hdmi1`, `hdmi2`
 * Picture Mode (`picture_mode`)
-  * Read/Write: `film`, `cinema`, `natural`, `hdr10`, `thx`, `user1`, `user2`, `user3`, `user4`, `user5`, `user6`, `hlg`
+  * Read/Write: `film`, `cinema`, `natural`, `hdr10`, `thx`, `user1`, `user2`, `user3`, `user4`, `user5`, `user6`, `hlg`,
+                `frame_adapt_hdr` (NZ series), `hdr10p` (NZ series), `pana_pq` (NZ series)
 * Low Latency Mode (`low_latency`)
   * Read/Write: `on`, `off`
 * Mask (`mask`)
   * Read/Write: `off`, `custom1`, `custom2`, `custom3`
 * Lamp Setting (`lamp`)
-  * Read/Write: `high`, `low`
+  * Read/Write: `high`, `low`, `mid` (NZ series only)
 * Menu Buttons (`menu`)
   * Write: `menu`, `down`, `left`, `right`, `up`, `ok`, `back`
 * Lens Aperture (`aperture`)
   * Read/Write: `off`, `auto1`, `auto2`
 * Anamorphic Mode (`anamorphic`)
-  * Read/Write: `off`, `a`, `b`, `c`
+  * Read/Write: `off`, `a`, `b`, `c`, `d` (NZ series)
 * Signal Status (`signal`)
   * Read: `no_signal`, `active_signal`
 * Get Mac Address (`macaddr`)

@@ -245,7 +245,8 @@ class Commands:
             "cinema": b"01",
             "natural": b"03",
             "hdr10": b"04",
-            "thx": b"06",
+            "thx": b"06", # not present in NZ series
+            "frame_adapt_hdr": b"0B" # new in NZ series
             "user1": b"0C",
             "user2": b"0D",
             "user3": b"0E",
@@ -253,6 +254,8 @@ class Commands:
             "user5": b"10",
             "user6": b"11",
             "hlg": b"14",
+            "hdr10p": b"15", # new in NZ series
+            "pana_pq": b"16", # new in NZ series
         },
     )
 
@@ -268,7 +271,7 @@ class Commands:
     # lamp commands
     lamp = Command(
         b"PMLP",
-        {"high": b"1", "low": b"0"},
+        {"high": b"1", "low": b"0", "mid": b"2"},
     )
 
     # menu controls
@@ -295,7 +298,7 @@ class Commands:
     # Anamorphic commands
     anamorphic = Command(
         b"INVS",
-        {"off": b"0", "a": b"1", "b": b"2", "c": b"3"},
+        {"off": b"0", "a": b"1", "b": b"2", "c": b"3", "d": b"4"},
     )
 
     # active signal
