@@ -23,7 +23,7 @@ class JVCProjector:
     ):
         self.host = host
         self.port = port if port else 20554
-        self.connect_timeout = connect_timeout if connect_timeout else 10
+        self.connect_timeout = connect_timeout if connect_timeout else 2
         self.delay = (
             datetime.timedelta(microseconds=(delay_ms * 1000))
             if delay_ms
@@ -33,7 +33,7 @@ class JVCProjector:
             seconds=10
         )
         self.password = password if password else ""
-        self.max_retries = max_retries if max_retries else 10
+        self.max_retries = max_retries if max_retries else 5
 
         _LOGGER.debug(
             f"initialising JVCProjector with host={self.host}, password={self.password}, port={self.port}, delay={self.delay.total_seconds()*1000}, connect_timeout={self.connect_timeout}, max_retries={self.max_retries}"
@@ -169,9 +169,11 @@ class JVCProjector:
     def validate_connection(self) -> bool:
         try:
             _LOGGER.debug(
-                f"Sending nullcmd to {jfrmt.highlight(f'{self.host}:{self.port}')} to verify connection"
+                f"Trying to establish communication with {jfrmt.highlight(f'{self.host}:{self.port}')}"
             )
-            self._send_command(Commands.nullcmd)
+            # short circuit the retry counter so we only try once
+            s: socket.socket = self.__connect(self.max_retries)
+            s.close()
             return True
         except JVCCannotConnectError as e:
             _LOGGER.warning(f"Couldn't verify connection to projector at the specified address: {self.host}:{self.port}.")
