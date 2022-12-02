@@ -185,13 +185,6 @@ class JVCProjector:
         self._send_command(Commands.power, "off")
 
     def command(self, command_string: str) -> Optional[str]:
-        ps = self.power_state()
-        if (command_string not in ["power-on", "power"]) and ps != "lamp_on":
-            raise JVCPoweredOffError(
-                f"Can't execute command: `{command_string}` unless the projector is in state `lamp_on`. "
-                f"Current power state is: `{ps}`"
-            )
-
         commandl: list[str] = command_string.split("-")
 
         if not hasattr(Commands, commandl[0]):
