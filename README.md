@@ -1,77 +1,83 @@
-This project is looking for (co-)maintainers. Times change, I might end up with a different projector brand, JVC might change the command interface for a newer model that I don't have. Enough people use this library now that I think it's important to think about think about its future. I would be grateful to have people who are competent in python and have access to a JVC projector on board. If you're willing to help, submit a pull request implementing new features, fixing bugs or tidying up my terrible programming and documentation!
+# JVC Projector Remote
+
+<details>
+<summary>
+⚠️ This project is looking for (co-)maintainers.
+</summary>
+Times change, I might end up with a different projector brand, JVC might change the command interface for a newer model that I don't have. Enough people use this library now that I think it's important to think about think about its future. I would be grateful to have people who are competent in python and have access to a JVC projector on board. If you're willing to help, submit a pull request implementing new features, fixing bugs or tidying up my terrible programming and documentation!
 
 If you'd like to make a donation to sponsor work on this project, you can [donate on ko-fi](https://ko-fi.com/bezmi), or [github sponsors](https://github.com/sponsors/bezmi)
 
-# JVC Projector Remote
+</details>
 
-This is a package to control JVC Projectors over IP. Created to be used with my [Homeassistant](https://www.home-assistant.io/) custom component: [bezmi/homeassistant_jvc_projector_remote](https://github.com/bezmi/homeassistant_jvc_projector_remote). It can also be used standalone.
+&NewLine;
 
-The following command groups are supported, with the corresponding reference (`?`, read) and operation (`!`, write) values:
-* Power (`power`)
-  * Read: `standby`, `lamp_on`, `cooling`, `reserved`, `emergency`
-  * Write: `on`, `off`
-* Lens Memory (`memory`)
-  * Read/Write: `1`, `2`, `3`, `4`, `5`, `6`, `7`, `8`, `9`, `10`
-* Input (`input`, HDMI only)
-  * Read/Write: `hdmi1`, `hdmi2`
-* Picture Mode (`picture_mode`)
-  * Read/Write: `film`, `cinema`, `natural`, `hdr10`, `thx`, `user1`, `user2`, `user3`, `user4`, `user5`, `user6`, `hlg`,
-                `frame_adapt_hdr` (NZ series), `hdr10p` (NZ series), `pana_pq` (NZ series)
-* Low Latency Mode (`low_latency`)
-  * Read/Write: `on`, `off`
-* Mask (`mask`)
-  * Read/Write: `off`, `custom1`, `custom2`, `custom3`
-* Lamp Setting (`lamp`)
-  * Read/Write: `high`, `low`, `mid` (NZ series only)
-* Menu Buttons (`menu`)
-  * Write: `menu`, `down`, `left`, `right`, `up`, `ok`, `back`
-* Lens Aperture (`aperture`)
-  * Read/Write: `off`, `auto1`, `auto2`
-* Anamorphic Mode (`anamorphic`)
-  * Read/Write: `off`, `a`, `b`, `c`, `d` (NZ series)
-* Signal Status (`signal`)
-  * Read: `no_signal`, `active_signal`
-* Get Mac Address (`macaddr`)
-  * Read: returns mac address string
-* Model Info (`modelinfo`)
-  * Real: Returns the model info string
-* Null Command
-  * Write: no write payload, used for testing connection
+This is a package to control JVC Projectors over IP.
+
+## References
+
+This library is used by following software:
+
+- [JVC projector remote for Homeassistant](https://github.com/bezmi/homeassistant_jvc_projector_remote) (add-on for [Home Assistant](https://www.home-assistant.io/)).
+- [homebridge-jvc-projector](https://www.npmjs.com/package/homebridge-jvc-projector)(plugin for [Homebridge](https://homebridge.io))
+
+It can also be used standalone or in a Python script.
 
 ## Command Format
-Commands are send to the projector with the `JVCProjector.command(command_string: str)` method. For write (operation) commands, the command string is the name of the command group, followed by a hyphen (`-`) and then the write value. For example:
-* Power on command_string: `power-on`
-* Change picture mode to `film`: `picture_mode-film`
-* Switch lamp to high: `lamp-high`
 
-For read (reference) commands, `command_string` is just the name of the group. For example:
-* To read power state, send `power`. We will receive `standby`, `lamp_on`, `cooling`, `reserved` or `emergency`
-* Read signal status, send `signal`, response will be `no_signal` or `active_signal`
+### Read State
 
+To get a status a specific command is sent with the `JVCProjector.command(<command>)` method.
 
-Raise an issue if you would like any extra commands implemented. Alternatively pull requests are more than welcome and adding new commands is trivial. [See Below.](#adding-new-commands)
+Examples:
 
-# Installation
-## PyPi
-Install [this package](https://pypi.org/project/jvc-projector-remote/) from PyPi
-with:
-~~~
-pip install jvc_projector_remote
-~~~
-## From this repo
-Install from this repo with:
-~~~
-pip install -e git+https://github.com/bezmi/jvc_projector.git#egg=jvc-projector-remote
-~~~
-For testing development branches:
-~~~
-pip install -e git+https://github.com/bezmi/jvc_projector.git@branch_name#egg=jvc-projector-remote
-~~~
-# Usage
-For usage with homeassistant, [see here](https://github.com/bezmi/homeassistant_jvc_projector_remote).
+- To read power state, send command `power` and receive `standby`, `lamp_on`, `cooling`, `reserved` or `emergency`
+- To read signal state, send command `signal` and receive `no_signal` or `active_signal`
 
-Here is an example for using this module standalone (see [command format](#command-format) section for command strings):
-``` python
+### Write State
+
+To control the projector, a command together with a certain state is sent with the `JVCProjector.command(<command>-<state>)` method.
+
+Examples:
+
+- Power _ON_: `power-on`
+- Change picture mode to _film_: `picture_mode-film`
+- Switch lamp to _high_: `lamp-high`
+
+## Supported Commands
+
+| Description      | Command      | State                                                                                                                                            |
+| ---------------- | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Power            | power        | **Read**: `standby`, `lamp_on`, `cooling`, `reserved`, `emergency`<br>**Write**: `on`, `off`                                                     |
+| Lens Memory      | memory       | **Read/Write**: `1`, `2`, `3`, `4`, `5`, `6`, `7`, `8`, `9`, `10`                                                                                |
+| Input            | input        | **Read/Write**: `hdmi1`, `hdmi2`                                                                                                                 |
+| Picture Mode     | picture_mode | `film`, `cinema`, `natural`, `hdr10`, `thx`, `user1`, `user2`, `user3`, `user4`, `user5`, `user6`, `hlg`, `frame_adapt_hdr`, `hdr10p`, `pana_pq` |
+| Low Latency Mode | low_latency  | **Read/Write**: `on`, `off`                                                                                                                      |
+| Mask             | mask         | **Read/Write**: `off`, `custom1`, `custom2`, `custom3`                                                                                           |
+| Lamp Setting     | lamp         | `high`, `low`, `mid`                                                                                                                             |
+| Menu Buttons     | menu         | **Write**: `menu`, `down`, `left`, `right`, `up`, `ok`, `back`                                                                                   |
+| Lens Aperture    | aperture     | **Read/Write**: `off`, `auto1`, `auto2`                                                                                                          |
+| Anamorphic Mode  | anamorphic   | **Read/Write**: `off`, `a`, `b`, `c`, `d`                                                                                                        |
+| Signal Status    | signal       | **Read**: `no_signal`, `active_signal`                                                                                                           |
+| Get Mac Address  | macaddr      | **Read**: returns mac address string                                                                                                             |
+| Model Info       | modelinfo    | **Read**: returns the model info string                                                                                                          |
+| Test Connection  | null         | **Write**: no write payload, used for testing connection                                                                                         |
+
+> **_NOTE:_** Not all commands or states are supported by all models. You can easily tell by testing them on your JVC projector.
+
+## Installation
+
+```console
+$ python3 -m pip install jvc_projector_remote
+```
+
+## Usage
+
+For usage with Home Assistant, [see here](https://github.com/bezmi/homeassistant_jvc_projector_remote).
+
+Below is an example for using this module standalone (see [command format](#command-format) section for command strings):
+
+```python
 >>> from jvc_projector_remote import JVCProjector
 
  # replace with your projector's local IP
@@ -99,23 +105,21 @@ False
 >>> projector.command("input-hdmi2")
 ```
 
-# Testing
-I wrote this to interface my projector with homeassistant. It
-has been tested on a DLA-X5900, but should work on most of the projectors
-that use a similar IP control scheme. Let me know if it works with your
-projector and I will add it to the list below.
-
 ## Confirmed Models
-* DLA-X5900
-* NX5
-* NZ8/RS3100
 
-# Bugs
+- DLA-X5900
+- NX5
+- NZ8/RS3100
+- DLA-RS440
+
+Let me know if it works with your
+projector and I will add it to the list above.
+
+## Error _ConnectionRefusedError_
+
 The main issue one might face is receiving ConnectionRefusedError when making a
-request too soon after another. If this is the case, we will retry up to `max_retries`. It is important to set `delay_ms` to a reasonable value. For example, my X5900 will hang for 0.8-1 second after the power-off command is sent. I have found that the defaults work in most situations.
+request too soon after another. If this is the case, we will retry up to `max_retries`. It is important to set `delay_ms` to a reasonable value. For example, my X5900 will hang for 0.8-1 second after the power-off command is sent.
 
-# Adding New Commands
-If you are not familiar with python at all, raise an issue with a request to add a new command. Otherwise, follow the [documentation](src/jvc_projector_remote/jvccommands.py#L19) for the `Command` base class and be sure to look at the [examples](src/jvc_projector_remote/jvccommands.py#L215) in the `Commands` class.
+## Adding New Commands
 
-
-
+If you are not familiar with Python at all, raise an issue with a request to add a new command. Otherwise, follow the [documentation](src/jvc_projector_remote/jvccommands.py#L19) for the `Command` base class and be sure to look at the [examples](src/jvc_projector_remote/jvccommands.py#L215) in the `Commands` class.
