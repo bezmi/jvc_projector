@@ -3,6 +3,7 @@
 import socket
 import logging
 from dataclasses import dataclass, field
+from typing import Dict, Tuple
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -20,7 +21,7 @@ class Command:
     """Base class for defining a set of read/write commands.
     Args:
         cmd (bytes): the base command bytes, for examplee b"PW" for power, b"PMPM" for picture mode.
-        *args (dict[str, bytes]): dictionaries of str:bytes pairs defining the read and write values.
+        *args (Dict[str, bytes]): dictionaries of str:bytes pairs defining the read and write values.
             If two dicts are provided as args, then the first is used for the write commands and
             the second is used for read values. If only a single dict is provided,
             we use it for both the write commands and the read values.
@@ -37,18 +38,18 @@ class Command:
 
     cmd: bytes
     name: str
-    readwritevals: tuple[dict[str, bytes]] = field(repr=False)
+    readwritevals: Tuple[Dict[str, bytes]] = field(repr=False)
     write_only: bool
     read_only: bool
     verify_write: bool
 
-    write_vals: dict[str, bytes]
-    read_vals: dict[str, bytes]
+    write_vals: Dict[str, bytes]
+    read_vals: Dict[str, bytes]
 
     def __init__(
         self,
         cmd: bytes,
-        *readwritevals: dict[str, bytes],
+        *readwritevals: Dict[str, bytes],
         write_only: bool = False,
         read_only: bool = False,
         verify_write: bool = True,
