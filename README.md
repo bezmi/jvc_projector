@@ -1,21 +1,19 @@
 # JVC Projector Remote
+A python package to control JVC Projectors over IP.
+
+&NewLine;
 
 <details>
 <summary>
 ⚠️ This project is looking for (co-)maintainers.
 </summary>
+&NewLine;
 Times change, I might end up with a different projector brand, JVC might change the command interface for a newer model that I don't have. Enough people use this library now that I think it's important to think about think about its future. I would be grateful to have people who are competent in python and have access to a JVC projector on board. If you're willing to help, submit a pull request implementing new features, fixing bugs or tidying up my terrible programming and documentation!
 
 If you'd like to make a donation to sponsor work on this project, you can [donate on ko-fi](https://ko-fi.com/bezmi), or [github sponsors](https://github.com/sponsors/bezmi)
-
 </details>
 
-&NewLine;
-
-This is a package to control JVC Projectors over IP.
-
 ## References
-
 This library is used by following software:
 
 - [JVC projector remote for Homeassistant](https://github.com/bezmi/homeassistant_jvc_projector_remote) (add-on for [Home Assistant](https://www.home-assistant.io/)).
@@ -23,28 +21,25 @@ This library is used by following software:
 
 It can also be used standalone or in a Python script.
 
-## Command Format
+## Command format
 
-### Read State
+### Read state
 
-To get a status a specific command is sent with the `JVCProjector.command(<command>)` method.
-
-Examples:
-
-- To read power state, send command `power` and receive `standby`, `lamp_on`, `cooling`, `reserved` or `emergency`
-- To read signal state, send command `signal` and receive `no_signal` or `active_signal`
-
-### Write State
-
-To control the projector, a command together with a certain state is sent with the `JVCProjector.command(<command>-<state>)` method.
+To read a property, use the `JVCProjector.command(<command>)` method.
 
 Examples:
+- Power state: send command `power` and the response will be `standby`, `lamp_on`, `cooling`, `reserved` or `emergency`
+- Signal state: send command `signal` and the response will be `no_signal` or `active_signal`
 
+### Write state
+To control the projector, use `JVCProjector.command(<command>-<state>)`.
+
+Examples:
 - Power _ON_: `power-on`
 - Change picture mode to _film_: `picture_mode-film`
 - Switch lamp to _high_: `lamp-high`
 
-## Supported Commands
+## Supported commands
 
 | Description      | Command      | State                                                                                                                                            |
 | ---------------- | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -66,13 +61,30 @@ Examples:
 > **_NOTE:_** Not all commands or states are supported by all models. You can easily tell by testing them on your JVC projector.
 
 ## Installation
-
+For the latest stable version,
 ```console
 $ python3 -m pip install jvc_projector_remote
 ```
+If you want to install the latest unstable commits from this repo,
+```console
+$ python3 -m pip install -e git+https://github.com/bezmi/jvc_projector.git#egg=jvc-projector-remote
+```
+### Building from source
+If you've made changes and want to install them, ensure you have [hatch](https://github.com/pypa/hatch).
+```console
+$ python3 -m pip install hatch
+```
+Run the build command from the root directory of this repository.
+```console
+$ hatch build
+```
+Finally, you can install the package. Make sure the filename that you specify matches the one you want to install in the `dist/` directory.
+```console
+$ pip install dist/jvc_projector_remote-vX.X.X-py3-none-any.whl
+```
+The `--force-reinstall` flag will ensure that updated files are installed even if the version number of your build matches the pre-existing package.
 
 ## Usage
-
 For usage with Home Assistant, [see here](https://github.com/bezmi/homeassistant_jvc_projector_remote).
 
 Below is an example for using this module standalone (see [command format](#command-format) section for command strings):
@@ -105,21 +117,17 @@ False
 >>> projector.command("input-hdmi2")
 ```
 
-## Confirmed Models
+## Confirmed models
+This module is confirmed to work for the models listed below. It should also work with projectors in the same series as the ones listed.
 
 - DLA-X5900
 - NX5
 - NZ8/RS3100
 - DLA-RS440
 
-Let me know if it works with your
-projector and I will add it to the list above.
+If you've confirmed functionality with a model that is unlisted, raise an issue or submit a pull request to have it added.
 
-## Error _ConnectionRefusedError_
+## Adding new commands
+Raise an issue or open a pull request. Add new commands to the [`Commands`](src/jvc_projector_remote/jvccommands.py#L231-L340) class. The format is documented in the [docstring](src/jvc_projector_remote/jvccommands.py#L20-L37) for the parent `Command` class.
 
-The main issue one might face is receiving ConnectionRefusedError when making a
-request too soon after another. If this is the case, we will retry up to `max_retries`. It is important to set `delay_ms` to a reasonable value. For example, my X5900 will hang for 0.8-1 second after the power-off command is sent.
 
-## Adding New Commands
-
-If you are not familiar with Python at all, raise an issue with a request to add a new command. Otherwise, follow the [documentation](src/jvc_projector_remote/jvccommands.py#L19) for the `Command` base class and be sure to look at the [examples](src/jvc_projector_remote/jvccommands.py#L215) in the `Commands` class.
