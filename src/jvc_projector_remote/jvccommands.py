@@ -101,8 +101,8 @@ class Command:
             sock.sendall(command)
         except OSError as e:
             sock.close()
-            raise JVCCommunicationError(
-                f"Socket exception of `{self.name}` command when sending bytes: `{command}`."
+            raise JVCConnectionError(
+                f"Socket exception for `{self.name}` command when sending bytes: `{command}`."
             ) from e
 
     def __verify_ack(self, sock: socket.socket, command: bytes) -> None:
@@ -111,74 +111,67 @@ class Command:
 
             # check if the ACK is valid (compare to user provided ack if available)
             if not ACK.startswith(ACKH):
-                sock.close()
-                raise JVCCommunicationError(
+                raise JVCCommandResponseError(
                     f"Malformed ACK response from the projector when sending command: `{self.name}` with bytes: `{command}`. "
                     f"Received ACK: `{ACK}` does not have the correct header"
                 )
-            elif not ACK == self.ack:
-                sock.close()
-                raise JVCCommunicationError(
+            if ACK != self.ack:
+                raise JVCCommandResponseError(
                     f"Malformed ACK response from the projector when sending command: `{self.name}` with bytes: `{command}`. "
                     f"Expected `{self.ack}`, received `{ACK}`"
                 )
 
+            _LOGGER.debug(
+                f"Correct ACK response from the projector when sending command: `{self.name}` with bytes: `{command}`. "
+                f"Expected `{self.ack}`, received `{ACK}`."
+            )
+
         except socket.timeout as e:
             sock.close()
-            raise JVCCommunicationError(
+            raise JVCConnectionError(
                 f"Timeout when waiting for the specified ACK: `{self.ack}` for command: `{self.name}` with bytes: `{command}`"
             ) from e
 
         except OSError as e:
             sock.close()
-            raise JVCCommunicationError(
+            raise JVCConnectionError( 
                 f"Socket exception when waiting for the specified ACK: `{self.ack}` for command: `{self.name}` with bytes: `{command}`"
             ) from e
 
     def write(self, sock: socket.socket, value: str = "") -> None:
         if self.read_only:
-            sock.close()
-            raise JVCCommandNotFoundError(
+            raise JVCCommandReadOnlyError(
                 f"The command group `{self.name}` does not implement any writable properties"
             )
         try:
             command = OPR + self.cmd + self.write_vals[value] + b"\n"
         except KeyError as e:
-            if not value and not self.write_vals:
+            if not value and not self.write_vals: # nullcmd falls into this category
                 command = OPR + self.cmd + b"\n"
             elif not value and self.write_only:
-                sock.close()
-                raise JVCCommandNotFoundError(
+                raise JVCCommandNoValueError(
                         f"Write only command group: `{self.name}` has to be called with a corresponding key to complete the write operation. "
                         f"Must be one of: {list(self.write_vals.keys())}."
                 ) from e
             else:
-                sock.close()
                 raise JVCCommandNotFoundError(
                     f"The command: `{self.name}` does not contain operation: `{value}`. "
                     f"Must be one of: {list(self.write_vals.keys())}."
                 ) from e
 
-        if not self.verify_write:
-            _LOGGER.debug(
-                f"ACK verification disabled for the command: `{jfrmt.highlight(self.name)} `. Error handling will be less robust"
-            )
-
         self.__send(sock, command)
 
         # no need to wait for ACK or message as this is not a reference command without ACK specified
         if not self.verify_write:
-            sock.close()
-            return
-
-        self.__verify_ack(sock, command)
-
-        sock.close()
+            _LOGGER.debug(
+                f"ACK verification disabled for the command: `{jfrmt.highlight(self.name)} `."
+            )
+        else:
+            self.__verify_ack(sock, command)
 
     def read(self, sock: socket.socket) -> str:
         if self.write_only:
-            sock.close()
-            raise JVCCommandNotFoundError(
+            raise JVCCommandWriteOnlyError(
                 f"The command group: `{self.name}` does not implement any readable properties"
             )
 
@@ -186,26 +179,29 @@ class Command:
 
         self.__send(sock, command)
 
-        self.__verify_ack(sock, command)
+        try:
+            self.__verify_ack(sock, command)
+        except JVCCommandResponseError as e:
+            _LOGGER.error("Error when waiting for response from projector")
+            raise e
 
         try:
             resp = sock.recv(1024)
         except socket.timeout as e:
             sock.close()
-            raise JVCCommunicationError(
+            raise JVCConnectionError(
                 f"Timeout when waiting for response for read command: `{self.name}`"
             ) from e
         except OSError as e:
             sock.close()
-            raise JVCCommunicationError(
+            raise JVCConnectionError(
                 f"Socket exception when waiting for response for read command: `{self.name}`"
             ) from e
 
-        sock.close()
         try:
             assert resp.startswith(RES + self.cmd[0:2])
         except AssertionError as e:
-            raise JVCCommunicationError(
+            raise JVCCommandResponseError(
                 f"Malformed response header for read command: `{self.name}`"
             ) from e
 
@@ -342,37 +338,38 @@ class Commands:
 
 class JVCConfigError(Exception):
     """Exception when the user supplied config is wrong"""
-
     pass
 
-
-class JVCCannotConnectError(Exception):
-    """Exception when we can't connect to the projector"""
-
+class JVCConnectionError(Exception):
+    """Exception when there is an issue with the underlying socket"""
     pass
-
 
 class JVCHandshakeError(Exception):
     """Exception when there was a problem with the 3 step handshake"""
-
     pass
 
-
-class JVCCommunicationError(Exception):
-    """Exception when there was a communication issue"""
-
+class JVCCommandError(Exception):
+    """Error with the user command, or unexpected ack"""
     pass
 
-
-class JVCCommandNotFoundError(Exception):
+class JVCCommandNotFoundError(JVCCommandError):
     """Exception when the requested command doesn't exist"""
-
     pass
 
+class JVCCommandReadOnlyError(JVCCommandError):
+    """The specified command was read only, but requested a write operation"""
+    pass
 
-class JVCPoweredOffError(Exception):
-    """Exception when projector is powered off and can't accept some commands."""
+class JVCCommandWriteOnlyError(JVCCommandError):
+    """The specified command was write only, but requested a read operation"""
+    pass
 
+class JVCCommandNoValueError(JVCCommandError):
+    """The specified write command was provided without a value"""
+    pass
+
+class JVCCommandResponseError(JVCCommandError):
+    """The expected response was not received"""
     pass
 
 class jfrmt:

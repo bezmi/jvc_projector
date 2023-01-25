@@ -2,7 +2,8 @@ import socket
 from time import sleep
 import datetime
 import logging
-from typing import Optional
+from typing import Optional, Union
+import traceback
 
 from .jvccommands import *
 
@@ -26,7 +27,7 @@ class JVCProjector:
         self.connect_timeout = connect_timeout if connect_timeout else 2
         self.delay = (
             datetime.timedelta(microseconds=(delay_ms * 1000))
-            if delay_ms
+            if isinstance(delay_ms, int)
             else datetime.timedelta(microseconds=(600000))
         )
         self.last_command_time = datetime.datetime.now() - datetime.timedelta(
@@ -38,24 +39,18 @@ class JVCProjector:
         _LOGGER.debug(
             f"initialising JVCProjector with host={self.host}, password={self.password}, port={self.port}, delay={self.delay.total_seconds()*1000}, connect_timeout={self.connect_timeout}, max_retries={self.max_retries}"
         )
-
+        
         self.JVC_REQ = b"PJREQ"
-        if self.password != None and len(self.password):
-            if len(self.password) == 10:
-                self.JVC_REQ = b"PJREQ_" + bytes(self.password, "ascii")
-            elif len(self.password) == 9:
-                self.JVC_REQ = b"PJREQ_" + bytes(self.password, "ascii") + b"\x00"
-            elif len(self.password) == 8:
-                self.JVC_REQ = b"PJREQ_" + bytes(self.password, "ascii") + b"\x00\x00"
-            else:
-                raise JVCConfigError(
-                    "Specified network password invalid (too long/short). Please check your configuration."
-                )
+
+        if self.password:
+            if len(self.password) < 8:
+                raise JVCConfigError("Specified network password invalid (too short). Please check your configuration.")
+            if len(self.password) > 10:
+                raise JVCConfigError("Specified network password invalid (too long). Please check your configuration.")
+
+            self.JVC_REQ = b"PJREQ" + b"_" + bytes(self.password, "ascii").ljust(10, b"\x00")
 
     def __throttle(self, last_time: datetime.datetime) -> None:
-        if self.delay == 0:
-            return
-
         delta = datetime.datetime.now() - last_time
 
         if self.delay > delta:
@@ -69,7 +64,7 @@ class JVCProjector:
             return jvc_sock
         except socket.timeout as e:
             jvc_sock.close()
-            raise JVCCannotConnectError(
+            raise JVCConnectionError(
                 "Timed out when trying to connect to projector"
             ) from e
         except OSError as e:
@@ -82,7 +77,7 @@ class JVCProjector:
                 jvc_sock = self.__connect(retry + 1)
                 _LOGGER.debug(f"Connection successful")
                 return jvc_sock
-            raise JVCCannotConnectError(
+            raise JVCConnectionError(
                 "Could not establish connection to projector"
             ) from e
 
@@ -92,28 +87,28 @@ class JVCProjector:
         JVC_REQ = self.JVC_REQ
         JVC_ACK = b"PJACK"
 
-        jvc_sock = self.__connect()
-
         _LOGGER.debug(f"Attempting handshake")
+
+        jvc_sock = self.__connect()
 
         try:
             message = jvc_sock.recv(len(JVC_GRT))
             if message != JVC_GRT:
                 jvc_sock.close()
                 raise JVCHandshakeError(
-                    f"Projector did not reply with PJ_OK (got `{message}` instead)"
+                    f"Unable to complete handshake. Projector did not reply with PJ_OK (got `{message}` instead)"
                 )
 
         except socket.timeout as e:
             jvc_sock.close()
-            raise JVCHandshakeError("Timeout when waiting to receive PJ_OK") from e
+            raise JVCConnectionError("Timeout during handshake while waiting to receive PJ_OK") from e
 
         # try sending PJREQ, if there's an error, raise exception
         try:
             jvc_sock.sendall(JVC_REQ)
         except OSError as e:
             jvc_sock.close()
-            raise JVCHandshakeError("Socket exception when sending PJREQ.") from e
+            raise JVCConnectionError("Socket exception during handshake when sending PJREQ.") from e
 
         # see if we receive PJACK, if not, raise exception
         try:
@@ -121,48 +116,64 @@ class JVCProjector:
             if message != JVC_ACK:
                 jvc_sock.close()
                 raise JVCHandshakeError(
-                    f"Projector did not reply with PJACK (received `{message}` instead)"
+                    f"Unable to complete handshake. Projector did not reply with PJACK (received `{message}` instead)"
                 )
         except socket.timeout as e:
             jvc_sock.close()
-            raise JVCHandshakeError("Timeout when waiting to receive PJACK") from e
+            raise JVCConnectionError("Timeout durin handshake when waiting to receive PJACK") from e
 
         _LOGGER.debug(f"Handshake successful")
         return jvc_sock
 
-    def _send_command(self, command: Command, value: str = "") -> Optional[str]:
-        """Call Commands.read() if not value, else Commands.write(value)"""
+    def send_command(self, command: Command, value: str = "", jvc_sock: Optional[socket.socket] = None, close_on_non_critical_error: bool = False) -> Union[str, bool]:
+        """Send a single command to the projector from the list of known commands.
 
-        self.__throttle(self.last_command_time)
+        If close_on_error = True, any exceptions will be caught and passed through, with the socket being closed.
+        """
 
-        jvc_sock: socket.socket = self.__handshake()
+        # initialise connection if the socket has not been provided
+        if jvc_sock is None: 
+            jvc_sock = self.__handshake()
 
-        result: Optional[str] = None
+        result: Union[str, bool] = False
 
-        if value:
-            _LOGGER.debug(
-                f"writing property: {jfrmt.highlight(value)} to command group: {jfrmt.highlight(command.name)}"
-            )
-            command.write(jvc_sock, value)
-        elif command.write_only:
-            _LOGGER.debug(
-                f"sending write_only operation: {jfrmt.highlight(command.name)}"
-            )
-            command.write(jvc_sock)
-        else:
-            _LOGGER.debug(
-                f"reading from command group: {jfrmt.highlight(command.name)}"
-            )
-            result = command.read(jvc_sock)
+        try:
+            if value:
+                _LOGGER.debug(
+                    f"writing property: {jfrmt.highlight(value)} to command group: {jfrmt.highlight(command.name)}"
+                )
+                command.write(jvc_sock, value)
+                result = True
+            elif command.write_only:
+                _LOGGER.debug(
+                    f"sending write_only operation: {jfrmt.highlight(command.name)}"
+                )
+                command.write(jvc_sock)
+                result = True
+            else:
+                _LOGGER.debug(
+                    f"reading from command group: {jfrmt.highlight(command.name)}"
+                )
+                result = command.read(jvc_sock)
+                _LOGGER.debug(
+                    f"the state of command group: {jfrmt.highlight(command.name)} is: {jfrmt.highlight(result)}"
+                )
 
-        self.last_command_time = datetime.datetime.now()
-        _LOGGER.debug(f"command sent successfully")
+            self.last_command_time = datetime.datetime.now()
+            _LOGGER.debug(f"command sent successfully")
 
-        if result is not None:
-            _LOGGER.debug(
-                f"the state of command group: {jfrmt.highlight(command.name)} is: {jfrmt.highlight(result)}"
-            )
-            return result
+        except JVCCommandError as e:
+            if close_on_non_critical_error:
+                jvc_sock.close()
+                raise JVCCommandError("There was a non-critical error when sending the command but close_on_non_critical_error is True.") from e
+            else:
+                _LOGGER.warning(
+                    f"There was a non-critical error when sending the command but close_on_non_critical_error is False:"
+                     "\n{traceback.format_exc()}"
+                )
+                return False
+
+        return result
 
     def validate_connection(self) -> bool:
         try:
@@ -173,39 +184,47 @@ class JVCProjector:
             s: socket.socket = self.__connect(self.max_retries)
             s.close()
             return True
-        except JVCCannotConnectError as e:
+        except JVCConnectionError:
             _LOGGER.warning(f"Couldn't verify connection to projector at the specified address: {self.host}:{self.port}.")
             return False
 
+    def commands(self, commands: list[str], jvc_sock: socket.socket) -> Optional[list[Union[str, bool]]]:
+        returns_list: list[Union[str, bool]] = []
+        for command in commands:
+            commandspl: list[str] = command.split("-")
+
+            # command doesn't exist
+            if not hasattr(Commands, commandspl[0]):
+                _LOGGER.warn(
+                    f"The requested command: `{command}` is not in the list of recognised commands"
+                )
+                returns_list.append(False)
+            else:
+                try:
+                    if len(commandspl) > 1: # operation command
+                        returns_list.append(self.send_command(getattr(Commands, commandspl[0]), value=commandspl[1], jvc_sock=jvc_sock, close_on_non_critical_error=False))
+                    else:
+                        returns_list.append(self.send_command(getattr(Commands, commandspl[0]), jvc_sock=jvc_sock, close_on_non_critical_error=False))
+                except Exception as e:
+                    jvc_sock.close()
+                    raise RuntimeError(f"Unexpected error when sending commands: {commands}") from e
+                        
 
     def power_on(self) -> None:
-        self._send_command(Commands.power, "on")
+        self.send_command(Commands.power, "on")
 
     def power_off(self) -> None:
-        self._send_command(Commands.power, "off")
+        self.send_command(Commands.power, "off")
 
-    def command(self, command_string: str) -> Optional[str]:
-        commandl: list[str] = command_string.split("-")
-
-        if not hasattr(Commands, commandl[0]):
-            raise JVCCommandNotFoundError(
-                f"The requested command: `{command_string}` is not in the list of recognised commands"
-            )
-        else:
-            if len(commandl) > 1:
-                self._send_command(getattr(Commands, commandl[0]), commandl[1])
-            else:
-                return self._send_command(getattr(Commands, commandl[0]))
-
-    def power_state(self) -> Optional[str]:
-        return self._send_command(Commands.power)
+    def power_state(self) -> Union[str, bool]:
+        return self.send_command(Commands.power)
 
     def is_on(self) -> bool:
         on = ["lamp_on", "reserved"]
         return self.power_state() in on
 
-    def get_mac(self) -> str:
-        return self._send_command(Commands.macaddr)
+    def get_mac(self) -> Union[str, bool]:
+        return self.send_command(Commands.macaddr)
 
-    def get_model(self) -> str:
-        return self._send_command(Commands.modelinfo)
+    def get_model(self) -> Union[str, bool]:
+        return self.send_command(Commands.modelinfo)
