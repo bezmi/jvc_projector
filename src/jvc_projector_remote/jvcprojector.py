@@ -190,6 +190,13 @@ class JVCProjector:
             return False
 
     def command(self, command: str, ignore_non_crit_error: bool = False) -> Optional[Union[str, bool]]:
+        """Send a single command in the string format '{command group}-{write value}
+        
+        For example: "power-on" will write "on" to the "power" group
+                    "power" (no write value) will read from the power group
+        
+        For a full list of compatible commands, see the Commands class in jvccommands.py
+        """
         commandspl: list[str] = command.split("-")
 
         # command doesn't exist
@@ -217,13 +224,50 @@ class JVCProjector:
             except Exception as e:
                 self.__close()
                 raise RuntimeError(f"Unexpected error when sending command: {command}.") from e
+    
+    def commands(self, commands: list[str], ignore_non_crit_error: bool = False) -> Optional[Union[str, bool]]:
+        """Send a list of commands in the string format '{command group}-{write value}
+
+        See help(JVCProjector.command) for further information about the format of the command string.
+        """
+        ret_list: list[Union[str, bool]] = []
+        for command in commands:
+            commandspl: list[str] = command.split("-")
+
+            # command doesn't exist
+            if not hasattr(Commands, commandspl[0]):
+                _LOGGER.warn(
+                    f"The requested command: `{command}` is not in the list of recognised commands"
+                )
+                ret_list.append(False)
+                continue
+            else:
+                try:
+                    if len(commandspl) > 1: # operation command
+                        ret_list.append(self.send_command(getattr(Commands, commandspl[0]), write_value=commandspl[1]))
+                        continue
+                    else:
+                        ret_list.append(self.send_command(getattr(Commands, commandspl[0])))
+                        continue
+                except JVCCommandError as e:
+                    if ignore_non_crit_error:
+                        _LOGGER.warn(
+                            f"Error when sending command: {command}. ignore_non_crit_error is True so continuing. Enable debug logging for more information."
+                        )
+                        _LOGGER.debug(f"{traceback.format_exc()}")
+                        ret_list.append(False)
+                        continue
+                    else:
+                        self.__close()
+                        raise JVCCommandError("Error when sending the command: {command}.") from e
+                except Exception as e:
+                    self.__close()
+                    raise RuntimeError(f"Unexpected error when sending command: {command}.") from e
 
     def power_on(self) -> None:
-        """send the power_on command without caring about whether it was successful"""
         self.command("power-on")
 
     def power_off(self) -> None:
-        """send the power_off command without caring about whether it was successful"""
         self.command("power-off")
 
     def power_state(self) -> Union[str, bool, None]:
