@@ -122,20 +122,19 @@ class Command:
                 )
 
             _LOGGER.debug(
-                f"Correct ACK response from the projector when sending command: `{self.name}` with bytes: `{command}`. "
-                f"Expected `{self.ack}`, received `{ACK}`."
+                f"Correct ACK response from the projector when sending command: `{self.name}`"
             )
 
         except socket.timeout as e:
             sock.close()
             raise JVCConnectionError(
                 f"Timeout when waiting for the specified ACK: `{self.ack}` for command: `{self.name}` with bytes: `{command}`"
-            ) from e
+            ) from None
 
         except OSError as e:
             sock.close()
             raise JVCConnectionError( 
-                f"Socket exception when waiting for the specified ACK: `{self.ack}` for command: `{self.name}` with bytes: `{command}`"
+                f"Exception when waiting for the specified ACK: `{self.ack}` for command: `{self.name}` with bytes: `{command}`"
             ) from e
 
     def write(self, sock: socket.socket, value: str = "") -> None:
@@ -152,12 +151,12 @@ class Command:
                 raise JVCCommandNoValueError(
                         f"Write only command group: `{self.name}` has to be called with a corresponding key to complete the write operation. "
                         f"Must be one of: {list(self.write_vals.keys())}."
-                ) from e
+                )
             else:
                 raise JVCCommandNotFoundError(
                     f"The command: `{self.name}` does not contain operation: `{value}`. "
                     f"Must be one of: {list(self.write_vals.keys())}."
-                ) from e
+                )
 
         self.__send(sock, command)
 
@@ -179,11 +178,7 @@ class Command:
 
         self.__send(sock, command)
 
-        try:
-            self.__verify_ack(sock, command)
-        except JVCCommandResponseError as e:
-            _LOGGER.error("Error when waiting for response from projector")
-            raise e
+        self.__verify_ack(sock, command)
 
         try:
             resp = sock.recv(1024)
@@ -191,7 +186,7 @@ class Command:
             sock.close()
             raise JVCConnectionError(
                 f"Timeout when waiting for response for read command: `{self.name}`"
-            ) from e
+            ) from None
         except OSError as e:
             sock.close()
             raise JVCConnectionError(
@@ -203,7 +198,7 @@ class Command:
         except AssertionError as e:
             raise JVCCommandResponseError(
                 f"Malformed response header for read command: `{self.name}`"
-            ) from e
+            )
 
         resp = resp[len(RES) + 2 : -1]
 
