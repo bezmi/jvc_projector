@@ -199,8 +199,9 @@ class JVCProjector:
                 )
             else:
                 com = getattr(Commands, commandspl[0])
-                if not self.is_on() and com.fail_standby:
-                    raise JVCCommandError(f"The command: `{command}` only works if the projector is not in standby")
+                if self.power_state() in com.fail_states:
+                    raise JVCCommandError(f"The command: `{command}` only works if the projector is "
+                                          f"not in one of these power states: {com.fail_states}.")
                 if len(commandspl) > 1: # operation (write) command
                     self.send_command(com, write_value=commandspl[1])
                     return True
@@ -214,20 +215,14 @@ class JVCProjector:
         except JVCCommandError as e:
             if ignore_error:
                 _LOGGER.warn(
-                    f"Got error: {repr(e)}.\n"
-                    "ignore_error is True so continuing.\n"
-                    "Enable debug logging for more information."
-                )
-                _LOGGER.debug(f"{traceback.format_exc()}")
+                    f"Got error: {repr(e)}.\n")
                 return False
             else:
                 self.__close()
                 raise JVCCommandError(f"Error when sending command: `{command}`.") from e
         except Exception as e:
             if ignore_error:
-                _LOGGER.error(f"Unexpected error when sending command {repr(e)}\n"
-                               "ignore_error is True, so continuing. Enable debug for more information.")
-                _LOGGER.debug(f"{traceback.format_exc()}")
+                _LOGGER.error(f"Unexpected error when sending command {repr(e)}")
                 return False
             else:
                 self.__close()
