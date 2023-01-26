@@ -31,6 +31,9 @@ class Command:
             Defaults to False.
         verify_write (bool, optional): Whether we should wait for an ACK once we send a write command.
             Defaults to True.
+        fail_standby (bool, optional): Will this command fail in standby mode?
+            Defaults to False.
+            It is the application's responsibility to compare the power state to the value of this flag.
 
     Examples:
         See jvccommands.Commands, jvcprojector.JVCProjector
@@ -45,6 +48,7 @@ class Command:
 
     write_vals: Dict[str, bytes]
     read_vals: Dict[str, bytes]
+    fail_standby: bool
 
     def __init__(
         self,
@@ -53,9 +57,11 @@ class Command:
         write_only: bool = False,
         read_only: bool = False,
         verify_write: bool = True,
+        fail_standby: bool = False,
     ):
         self.cmd = cmd
         self.verify_write = verify_write
+        self.fail_standby = fail_standby
 
         self.ack = ACKH + self.cmd[0:2] + b"\n"
 
@@ -93,7 +99,7 @@ class Command:
 
     # TODO: this only works if the commands are defined within a class.
     # A globally defined Command won't have the`name` property.
-    def __set_name__(self, owner, name: str):
+    def __set_name__(self, owner: object, name: str):
         self.name = name
 
     def __send(self, sock: socket.socket, command: bytes) -> None:
@@ -144,7 +150,7 @@ class Command:
             )
         try:
             command = OPR + self.cmd + self.write_vals[value] + b"\n"
-        except KeyError as e:
+        except KeyError:
             if not value and not self.write_vals: # nullcmd falls into this category
                 command = OPR + self.cmd + b"\n"
             elif not value and self.write_only:
@@ -167,6 +173,7 @@ class Command:
             )
         else:
             self.__verify_ack(sock, command)
+
 
     def read(self, sock: socket.socket) -> str:
         if self.write_only:
@@ -239,10 +246,11 @@ class Commands:
     memory = Command(
         b"INML",
         {"1": b"0", "2": b"1", "3": b"2", "4": b"3", "5": b"4", "6": b"5", "7": b"6", "8": b"7", "9": b"8", "10": b"9"},
+        fail_standby=True,
     )
 
     # input commands, input is technically a keyword, but should be okay...
-    input = Command(b"IP", {"hdmi1": b"6", "hdmi2": b"7"})
+    input = Command(b"IP", {"hdmi1": b"6", "hdmi2": b"7"}, fail_standby=True)
 
     # picture mode commands
     picture_mode = Command(
@@ -264,21 +272,24 @@ class Commands:
             "hdr10p": b"15", # new in NZ series
             "pana_pq": b"16", # new in NZ series
         },
+        fail_standby=True,
     )
 
     # low latency enable/disable
-    low_latency = Command(b"PMLL", {"on": b"1", "off": b"0"})
+    low_latency = Command(b"PMLL", {"on": b"1", "off": b"0"}, fail_standby=True)
 
     # mask commands
     mask = Command(
         b"ISMA",
         {"off": b"2", "custom1": b"0", "custom2": b"1", "custom3": b"3"},
+        fail_standby=True,
     )
 
     # lamp commands
     lamp = Command(
         b"PMLP",
         {"high": b"1", "low": b"0", "mid": b"2"},
+        fail_standby=True,
     )
 
     # menu controls
@@ -294,18 +305,21 @@ class Commands:
             "back": b"03",
         },
         write_only=True,
+        fail_standby=True,
     )
 
     # Intelligent Lens Aperture commands
     aperture = Command(
         b"PMDI",
         {"off": b"0", "auto1": b"1", "auto2": b"2"},
+        fail_standby=True,
     )
 
     # Anamorphic commands
     anamorphic = Command(
         b"INVS",
         {"off": b"0", "a": b"1", "b": b"2", "c": b"3", "d": b"4"},
+        fail_standby=True,
     )
 
     # active signal
@@ -313,6 +327,7 @@ class Commands:
         b"SC",
         {"no_signal": b"0", "active_signal": b"1"},
         read_only=True,
+        fail_standby=True,
     )
 
     # MAC address, model, null command

@@ -158,21 +158,20 @@ class JVCProjector:
                     f"reading from command group: {jfrmt.highlight(command.name)}"
                 )
                 result = command.read(self.jvc_sock)
+                _LOGGER.debug(f"command sent successfully")
                 _LOGGER.debug(
                     f"the state of command group: {jfrmt.highlight(command.name)} is: {jfrmt.highlight(result)}"
                 )
-
                 self.last_command_time = datetime.datetime.now()
-                _LOGGER.debug(f"command sent successfully")
+                return result
         except JVCConnectionError as e:
             self.__close()
             raise JVCConnectionError(f"Unexpected error when sending command: {jfrmt.highlight(command.name)} with value: '{jfrmt.highlight(write_value)}' to projector.") from e
         except JVCCommandError as e:
             raise JVCCommandError() from e
-        return result
 
 
-    def command(self, command: str, ignore_non_crit_error: bool = True) -> Union[str, bool]:
+    def command(self, command: str, ignore_error: Union[bool, None] = None) -> Union[str, bool]:
         """Send a single command in the string format '{command group}-{write value}
         
         For example: "power-on" will write "on" to the "power" group
@@ -181,48 +180,60 @@ class JVCProjector:
           write command (write value is specified, or nullcmd):
             True: the write was successful (or ACKs are ignored in the implementation)
             False: the write was unsuccessful 
-          read command (no write value): string containing the response.
+          read command (no write value):
+            string: if the command was successful, contains the response.
+            False: the command was not successful/error
 
-        NOTE: write commands will only return false if "ignore_non_crit_error" is true.
-              If this value is False, then JVCCommandErrors, which are emitted when the command
-              was not successfully sent will be raised as exceptions instead of warnings.
+        NOTE: commands will only return False if "ignore_error" is True.
+              Otherwise exceptions will be raised when commands are unsuccessful.
         
         For a full list of compatible commands, see the Commands class in jvccommands.py
         """
         commandspl: list[str] = command.split("-")
 
         # command doesn't exist
-        if not hasattr(Commands, commandspl[0]):
-            _LOGGER.warn(
-                f"The requested command: `{command}` is not in the list of recognised commands"
-            )
-            return False
-        else:
-            try:
+        try:
+            if not hasattr(Commands, commandspl[0]):
+                raise JVCCommandNotFoundError(
+                    f"The command: `{command}` is not in the list of recognised commands"
+                )
+            else:
+                com = getattr(Commands, commandspl[0])
+                if not self.is_on() and com.fail_standby:
+                    raise JVCCommandError(f"The command: `{command}` only works if the projector is not in standby")
                 if len(commandspl) > 1: # operation (write) command
-                    self.send_command(getattr(Commands, commandspl[0]), write_value=commandspl[1])
+                    self.send_command(com, write_value=commandspl[1])
+                    return True
+                if com.name == Commands.nullcmd.name: # special case for nullcmd
+                    self.send_command(com)
                     return True
                     
-                else: # request (read) command
-                    ret = self.send_command(getattr(Commands, commandspl[0]))
-                    assert ret is not None # can't be as we asked to read a value
-                    return ret
-
-            except JVCCommandError as e:
-                if ignore_non_crit_error:
-                    _LOGGER.warn(
-                        f"Error when sending command: {command}. ignore_non_crit_error is True so continuing. Enable debug logging for more information."
-                    )
-                    _LOGGER.debug(f"{traceback.format_exc()}")
-                    return False
-                else:
-                    self.__close()
-                    raise JVCCommandError("Error when sending the command: {command}.") from e
-            except Exception as e:
+                ret = self.send_command(com)
+                assert ret is not None # can't be as we asked to read a value
+                return ret
+        except JVCCommandError as e:
+            if ignore_error:
+                _LOGGER.warn(
+                    f"Got error: {repr(e)}.\n"
+                    "ignore_error is True so continuing.\n"
+                    "Enable debug logging for more information."
+                )
+                _LOGGER.debug(f"{traceback.format_exc()}")
+                return False
+            else:
                 self.__close()
-                raise RuntimeError(f"Unexpected error when sending command: {command}.") from e
+                raise JVCCommandError(f"Error when sending command: `{command}`.") from e
+        except Exception as e:
+            if ignore_error:
+                _LOGGER.error(f"Unexpected error when sending command {repr(e)}\n"
+                               "ignore_error is True, so continuing. Enable debug for more information.")
+                _LOGGER.debug(f"{traceback.format_exc()}")
+                return False
+            else:
+                self.__close()
+                raise RuntimeError(f"Unexpected error when sending command: `{command}`.") from e
     
-    def commands(self, commands: list[str], ignore_non_crit_error: bool = False) -> list[Union[str, bool]]:
+    def commands(self, commands: list[str], ignore_error: Union[bool, None] = None) -> list[Union[str, bool]]:
         """Send a list of commands in the string format '{command group}-{write value}
 
         Returns: mixed list boolean (for write commands) or string (for read commands) values.
@@ -231,7 +242,7 @@ class JVCProjector:
         """
         ret_list: list[Union[str, bool]] = []
         for command in commands:
-            ret_list.append(self.command(command, ignore_non_crit_error = ignore_non_crit_error))
+            ret_list.append(self.command(command, ignore_error=ignore_error))
         return ret_list
 
     def verify_connection(self) -> bool:
@@ -240,7 +251,7 @@ class JVCProjector:
             _LOGGER.debug(f"Sending nullcmd to verify connection to projector at: {self.host}:{self.port}.")
             # short circuit the retry counter so we only try once
             self.handshake()
-            self.command("nullcmd")
+            self.send_command(Commands.nullcmd)
             self.__close()
             return True
 
@@ -249,20 +260,22 @@ class JVCProjector:
             return False
 
     def power_on(self) -> None:
-        self.command("power-on")
+        self.send_command(Commands.power, "on")
 
     def power_off(self) -> None:
-        self.command("power-off")
+        self.send_command(Commands.power, "off")
 
-    def power_state(self) -> Union[str, bool, None]:
-        return self.command("power")
+    def power_state(self) -> str:
+        pwr = self.send_command(Commands.power)
+        assert isinstance(pwr, str)
+        return pwr
 
     def is_on(self) -> bool:
         on = ["lamp_on", "reserved"]
         return self.power_state() in on
 
     def get_mac(self) -> Union[str, bool, None]:
-        return self.command("macaddr")
+        return self.send_command(Commands.macaddr)
 
     def get_model(self) -> Union[str, bool, None]:
-        return self.command("modelinfo")
+        return self.send_command(Commands.modelinfo)
