@@ -81,7 +81,7 @@ class JVCProjector:
                 "Could not establish connection to projector"
             ) from e
 
-    def __handshake(self) -> socket.socket:
+    def handshake(self) -> socket.socket:
 
         JVC_GRT = b"PJ_OK"
         JVC_REQ = self.JVC_REQ
@@ -125,54 +125,36 @@ class JVCProjector:
         _LOGGER.debug(f"Handshake successful")
         return jvc_sock
 
-    def send_command(self, command: Command, value: str = "", jvc_sock: Optional[socket.socket] = None, close_on_non_critical_error: bool = False) -> Union[str, bool]:
+    def send_command(self, jvc_sock: socket.socket, command: Command, value: str = "") -> Union[str, bool]:
         """Send a single command to the projector from the list of known commands.
 
-        If close_on_error = True, any exceptions will be caught and passed through, with the socket being closed.
+        returns a response for read commands or a boolean which is True if the command was successfully sent.
         """
-
-        # initialise connection if the socket has not been provided
-        if jvc_sock is None: 
-            jvc_sock = self.__handshake()
-
         result: Union[str, bool] = False
 
-        try:
-            if value:
-                _LOGGER.debug(
-                    f"writing property: {jfrmt.highlight(value)} to command group: {jfrmt.highlight(command.name)}"
-                )
-                command.write(jvc_sock, value)
-                result = True
-            elif command.write_only:
-                _LOGGER.debug(
-                    f"sending write_only operation: {jfrmt.highlight(command.name)}"
-                )
-                command.write(jvc_sock)
-                result = True
-            else:
-                _LOGGER.debug(
-                    f"reading from command group: {jfrmt.highlight(command.name)}"
-                )
-                result = command.read(jvc_sock)
-                _LOGGER.debug(
-                    f"the state of command group: {jfrmt.highlight(command.name)} is: {jfrmt.highlight(result)}"
-                )
+        if value:
+            _LOGGER.debug(
+                f"writing property: {jfrmt.highlight(value)} to command group: {jfrmt.highlight(command.name)}"
+            )
+            command.write(jvc_sock, value)
+            result = True
+        elif command.write_only:
+            _LOGGER.debug(
+                f"sending write_only operation: {jfrmt.highlight(command.name)}"
+            )
+            command.write(jvc_sock)
+            result = True
+        else:
+            _LOGGER.debug(
+                f"reading from command group: {jfrmt.highlight(command.name)}"
+            )
+            result = command.read(jvc_sock)
+            _LOGGER.debug(
+                f"the state of command group: {jfrmt.highlight(command.name)} is: {jfrmt.highlight(result)}"
+            )
 
             self.last_command_time = datetime.datetime.now()
             _LOGGER.debug(f"command sent successfully")
-
-        except JVCCommandError as e:
-            if close_on_non_critical_error:
-                jvc_sock.close()
-                raise JVCCommandError("There was a non-critical error when sending the command but close_on_non_critical_error is True.") from e
-            else:
-                _LOGGER.warning(
-                    f"There was a non-critical error when sending the command but close_on_non_critical_error is False:"
-                     "\n{traceback.format_exc()}"
-                )
-                return False
-
         return result
 
     def validate_connection(self) -> bool:
@@ -188,43 +170,62 @@ class JVCProjector:
             _LOGGER.warning(f"Couldn't verify connection to projector at the specified address: {self.host}:{self.port}.")
             return False
 
-    def commands(self, commands: list[str], jvc_sock: socket.socket) -> Optional[list[Union[str, bool]]]:
-        returns_list: list[Union[str, bool]] = []
-        for command in commands:
-            commandspl: list[str] = command.split("-")
+    def command(self, command: str, jvc_sock: Optional[socket.socket] = None, ignore_non_crit_error: bool = False) -> Optional[Union[str, bool]]:
+        resp: Union[str, bool] = False
+        commandspl: list[str] = command.split("-")
+        is_temp_sock: bool = True if jvc_sock is None else False
+        if jvc_sock is None:
+            jvc_sock = self.handshake()
 
-            # command doesn't exist
-            if not hasattr(Commands, commandspl[0]):
-                _LOGGER.warn(
-                    f"The requested command: `{command}` is not in the list of recognised commands"
-                )
-                returns_list.append(False)
-            else:
-                try:
-                    if len(commandspl) > 1: # operation command
-                        returns_list.append(self.send_command(getattr(Commands, commandspl[0]), value=commandspl[1], jvc_sock=jvc_sock, close_on_non_critical_error=False))
-                    else:
-                        returns_list.append(self.send_command(getattr(Commands, commandspl[0]), jvc_sock=jvc_sock, close_on_non_critical_error=False))
-                except Exception as e:
+        # command doesn't exist
+        if not hasattr(Commands, commandspl[0]):
+            _LOGGER.warn(
+                f"The requested command: `{command}` is not in the list of recognised commands"
+            )
+            resp = False
+        else:
+            try:
+                if len(commandspl) > 1: # operation command
+                    resp = self.send_command(jvc_sock, getattr(Commands, commandspl[0]), value=commandspl[1])
+                else:
+                    resp = self.send_command(jvc_sock, getattr(Commands, commandspl[0]))
+            except JVCCommandError as e:
+                if ignore_non_crit_error:
+                    _LOGGER.warn(
+                        f"There was an error when sending command: {command}. ignore_non_crit_error is True so socket will remain open, \n"
+                        f"{traceback.format_exc()}"
+                    )
+                    resp = False
+                else:
                     jvc_sock.close()
-                    raise RuntimeError(f"Unexpected error when sending commands: {commands}") from e
+                    raise JVCCommandError("There was an error when sending the command: {command}. Aborting and closing the socket.") from e
+            except Exception as e:
+                jvc_sock.close()
+                raise RuntimeError(f"Unexpected error when sending command: {command}. Aborting and closing the socket.") from e
+        if is_temp_sock: jvc_sock.close()
+        return resp
                         
 
     def power_on(self) -> None:
-        self.send_command(Commands.power, "on")
+        """send the power_on command without caring about whether it was successful"""
+        self.command("power-on")
 
     def power_off(self) -> None:
-        self.send_command(Commands.power, "off")
+        """send the power_off command without caring about whether it was successful"""
+        self.command("power-off")
 
-    def power_state(self) -> Union[str, bool]:
-        return self.send_command(Commands.power)
+    def power_state(self) -> Union[str, bool, None]:
+        ps = self.command("power")
+        return ps
 
     def is_on(self) -> bool:
         on = ["lamp_on", "reserved"]
         return self.power_state() in on
 
-    def get_mac(self) -> Union[str, bool]:
-        return self.send_command(Commands.macaddr)
+    def get_mac(self) -> Union[str, bool, None]:
+        gm = self.command("macaddr")
+        return gm
 
-    def get_model(self) -> Union[str, bool]:
-        return self.send_command(Commands.modelinfo)
+    def get_model(self) -> Union[str, bool, None]:
+        model = self.command("modelinfo")
+        return model
