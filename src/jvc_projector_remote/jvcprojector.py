@@ -3,7 +3,6 @@ from time import sleep
 import datetime
 import logging
 from typing import Optional, Union
-import traceback
 import errno
 
 from .jvccommands import *
