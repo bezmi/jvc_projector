@@ -248,6 +248,7 @@ class Commands:
     memory = Command(
         b"INML",
         {"1": b"0", "2": b"1", "3": b"2", "4": b"3", "5": b"4", "6": b"5", "7": b"6", "8": b"7", "9": b"8", "10": b"9"},
+        write_only=True,
     )
 
     # input commands, input is technically a keyword, but should be okay...

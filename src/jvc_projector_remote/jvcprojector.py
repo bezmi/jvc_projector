@@ -209,7 +209,7 @@ class JVCProjector:
                     return True
                     
                 ret = self.send_command(com)
-                assert ret is not None # can't be as we asked to read a value
+                assert ret is not None
                 return ret
         except JVCCommandError as e:
             if ignore_error:
